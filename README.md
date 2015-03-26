@@ -33,7 +33,7 @@ MATCH p=(n:Email)<-[:REPLY*]-(:Email)
 WHERE id(n)=123
 RETURN p
 ```
-![alt text](https://github.com/tolomaus/email2neo4j/images/emailthread.png "Email thread")
+![alt text](https://github.com/tolomaus/email2neo4j/blob/master/images/emailthread.png "Email thread")
 
 ```
 // Email thread by email id now with all accounts
@@ -41,4 +41,4 @@ MATCH p=(:Account)-[]-(n:Email)<-[:REPLY*]-(:Email)-[]-(:Account)
 WHERE id(n)=135256
 RETURN p
 ```
-![alt text](https://github.com/tolomaus/email2neo4j/images/emailthreadwithaccounts.png "Email thread with accounts")
+![alt text](https://github.com/tolomaus/email2neo4j/blob/master/images/emailthreadwithaccounts.png "Email thread with accounts")
