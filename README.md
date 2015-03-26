@@ -11,5 +11,27 @@ It assumes that you have neo4j installed on http://localhost:7474/db/data
 
 Notes:
 It *shouldn't* do any harm to your emails as all it does is read it's headers but you may test it first on a folder with less important mails, just to be sure.
+
 On a Mac you can export your mails to an mbox file with Mac Mail as well as Outlook for Mac
+
 On a Windows you may have to install a <whatever format>-to-mbox converter.
+
+
+Some useful neo4j/Cypher queries:
+
+//Biggest email threads
+MATCH p=(e:Email)<-[:REPLY*]-(r:Email)<-[]-(sender:Account)
+WHERE NOT (e)-[:REPLY]->()
+RETURN sender.name, e.subject, Id(e), length(p) - 1 AS depth
+ORDER BY depth DESC
+LIMIT 100
+
+// Email thread by email id
+MATCH p=(n:Email)<-[:REPLY*]-(:Email)
+WHERE id(n)=123
+RETURN p
+
+// Email thread by email id now with all accounts
+MATCH p=(:Account)-[]-(n:Email)<-[:REPLY*]-(:Email)-[]-(:Account)
+WHERE id(n)=135256
+RETURN p
