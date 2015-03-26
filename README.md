@@ -3,10 +3,12 @@
 These two little go command line tool allows you to import your emails from either a mail server via IMAP or an mbox file into a neo4j graph database. I have used the model from the email example project that is explained in Chapter 3 of the book 'Graph Databases' by Ian Robinson, Jim Webber and Emil Eifrem (which is a truly great introduction to the graph btw)
 
 #### Usage:
-
-`imap2neo4j imap.myserver.com Inbox user@myserver.com password [paging, eg import by batches of 1000] [specific range of messages, eg 5000:*]`
-
-`mbox2neo4j /path/to/mbox/file`
+```shell
+imap2neo4j imap.myserver.com Inbox user@myserver.com password [paging, eg import by batches of 1000] [specific range of messages, eg 5000:*]
+```
+```shell
+mbox2neo4j /path/to/mbox/file
+```
 
 It assumes that you have neo4j installed on http://localhost:7474/db/data
 
@@ -18,7 +20,7 @@ On a Mac you can export your mails to an mbox file with Mac Mail as well as Outl
 
 #### Some useful neo4j/Cypher queries:
 
-```
+```sql
 //Biggest email threads
 MATCH p=(e:Email)<-[:REPLY*]-(r:Email)<-[]-(sender:Account)
 WHERE NOT (e)-[:REPLY]->()
@@ -27,7 +29,7 @@ ORDER BY depth DESC
 LIMIT 100
 ```
 
-```
+```sql
 // Email thread by email id
 MATCH p=(n:Email)<-[:REPLY*]-(:Email)
 WHERE id(n)=123
@@ -35,7 +37,7 @@ RETURN p
 ```
 ![alt text](https://github.com/tolomaus/email2neo4j/blob/master/images/emailthread.png "Email thread")
 
-```
+```sql
 // Email thread by email id now with all accounts
 MATCH p=(:Account)-[]-(n:Email)<-[:REPLY*]-(:Email)-[]-(:Account)
 WHERE id(n)=135256
