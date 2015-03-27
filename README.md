@@ -10,7 +10,7 @@ imap2neo4j imap.myserver.com Inbox user@myserver.com password [paging, eg import
 mbox2neo4j /path/to/mbox/file
 ```
 
-It assumes that you have neo4j installed on http://localhost:7474/db/data
+It assumes that you have neo4j 2.2+ installed on http://localhost:7474/db/data.
 
 It *shouldn't* do any harm to your emails as all it does is read it's headers but you may test it first on a folder with less important mails, just to be sure.
 
