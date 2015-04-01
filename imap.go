@@ -6,7 +6,6 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"github.com/jmcvetta/neoism"
 	"github.com/mxk/go-imap/imap"
 	"log"
 	"net/mail"
@@ -15,21 +14,36 @@ import (
 	"time"
 )
 
-func ImportImapMailbox(server, mailbox, email, passwd string, pagingSize, firstMessage, lastMessage int) (importedMessages int, messagesToProcess int, failedMessagesErrors []string, err error) {
+func NewImapImporter(imapServer, imapUsername, imapPassword, neo4jServer, neo4jUsername, neo4jPassword string) *ImapMailboxImporter {
+	return &ImapMailboxImporter{
+		imapServer:    imapServer,
+		imapUsername:  imapUsername,
+		imapPassword:  imapPassword,
+		neo4jServer:   neo4jServer,
+		neo4jUsername: neo4jUsername,
+		neo4jPassword: neo4jPassword,
+	}
+}
+
+type ImapMailboxImporter struct {
+	imapServer, imapUsername, imapPassword, neo4jServer, neo4jUsername, neo4jPassword string
+}
+
+func (imi *ImapMailboxImporter) Import(imapMailbox string, pagingSize, firstMessage, lastMessage int) (importedMessages int, messagesToProcess int, failedMessagesErrors []string, err error) {
 	log.Println("Starting...")
 
 	var response *imap.Response
 	var cmd *imap.Command
 
-	log.Println("Initializing IMAP mailbox...")
-	client, err := InitializeImapMailbox(server, mailbox, email, passwd)
+	log.Println("Opening IMAP mailbox " + imapMailbox + " on server " + imi.imapServer + " with user " + imi.imapUsername + "...")
+	client, err := imi.openImapMailbox(imapMailbox)
 	if err != nil {
 		return 0, 0, nil, err
 	}
 	defer client.Logout(30 * time.Second)
 
 	log.Println("Initializing neo4j...")
-	db, err := InitializeNeo4jDatabase()
+	edb, err := NewEmailDatabase(imi.neo4jServer, imi.neo4jUsername, imi.neo4jPassword)
 	if err != nil {
 		return 0, 0, nil, err
 	}
@@ -82,7 +96,7 @@ func ImportImapMailbox(server, mailbox, email, passwd string, pagingSize, firstM
 				currentMessage++
 				log.Println("Processing message", strconv.Itoa(currentMessage), "of", strconv.Itoa(messagesToProcess), "...")
 
-				err = ProcessResponse(response, db)
+				err = imi.processResponse(response, edb)
 				if err != nil {
 					failedMessagesErrors = append(failedMessagesErrors, "Not able to process message "+strconv.Itoa(currentMessage)+": "+err.Error())
 					log.Println()
@@ -92,7 +106,7 @@ func ImportImapMailbox(server, mailbox, email, passwd string, pagingSize, firstM
 		}
 
 		if page < totalPages {
-			if askToContinue() == false {
+			if imi.askToContinue() == false {
 				return currentMessage, messagesToProcess, failedMessagesErrors, nil
 			}
 		}
@@ -104,21 +118,10 @@ func ImportImapMailbox(server, mailbox, email, passwd string, pagingSize, firstM
 	}
 	client.Data = nil
 
-	/*
-		// Check command completion status
-		if rsp, err := cmd.Result(imap.OK); err != nil {
-			if err == imap.ErrAborted {
-				log.Println("Fetch command aborted")
-			} else {
-				log.Println("Fetch error:", rsp.Info)
-			}
-		}
-	*/
-
 	return currentMessage, messagesToProcess, failedMessagesErrors, nil
 }
 
-func InitializeImapMailbox(server, mailbox, email, passwd string) (client *imap.Client, err error) {
+func (imi *ImapMailboxImporter) openImapMailbox(mailbox string) (client *imap.Client, err error) {
 	var cmd *imap.Command
 
 	conf := &tls.Config{
@@ -126,7 +129,7 @@ func InitializeImapMailbox(server, mailbox, email, passwd string) (client *imap.
 	}
 
 	log.Println("Connecting to the server...")
-	client, err = imap.DialTLS(server, conf)
+	client, err = imap.DialTLS(imi.imapServer, conf)
 	if err != nil {
 		return nil, err
 	}
@@ -141,11 +144,11 @@ func InitializeImapMailbox(server, mailbox, email, passwd string) (client *imap.
 
 	if client.State() == imap.Login {
 		log.Println("Logging in...")
-		client.Login(email, passwd)
+		client.Login(imi.imapUsername, imi.imapPassword)
 	}
 
 	if client.State() != imap.Auth {
-		return nil, errors.New("Cannot authenticate " + email)
+		return nil, errors.New("Cannot authenticate " + imi.imapUsername)
 	}
 
 	log.Println("Retrieving top mailbox:")
@@ -168,14 +171,6 @@ func InitializeImapMailbox(server, mailbox, email, passwd string) (client *imap.
 		log.Println("|--", response.MailboxInfo().Name)
 	}
 
-	/*
-		// Check for new unilateral server data responses
-		for _, rsp = range client.Data {
-			log.Println("Server data:", rsp)
-		}
-		client.Data = nil
-	*/
-
 	var mailbox_path string
 	if strings.EqualFold(top_mailbox, mailbox) {
 		mailbox_path = top_mailbox
@@ -183,7 +178,6 @@ func InitializeImapMailbox(server, mailbox, email, passwd string) (client *imap.
 		mailbox_path = top_mailbox + delim + mailbox
 	}
 
-	// Open a mailbox (synchronous command - no need for imap.Wait)
 	log.Println("Opening mailbox", mailbox_path, "...")
 	_, err = client.Select(mailbox_path, true)
 	if err != nil {
@@ -196,7 +190,7 @@ func InitializeImapMailbox(server, mailbox, email, passwd string) (client *imap.
 	return client, nil
 }
 
-func ProcessResponse(response *imap.Response, db *neoism.Database) (err error) {
+func (imi *ImapMailboxImporter) processResponse(response *imap.Response, edb *EmailDatabase) (err error) {
 	header := imap.AsBytes(response.MessageInfo().Attrs["RFC822.HEADER"])
 
 	msg, err := mail.ReadMessage(bytes.NewReader(header))
@@ -204,10 +198,10 @@ func ProcessResponse(response *imap.Response, db *neoism.Database) (err error) {
 		return err
 	}
 
-	return ProcessMessage(msg, db)
+	return ProcessMessage(msg, edb)
 }
 
-func askToContinue() bool {
+func (imi *ImapMailboxImporter) askToContinue() bool {
 	fmt.Println("Continue? [yn]")
 
 	var response string
@@ -222,6 +216,6 @@ func askToContinue() bool {
 		return false
 	} else {
 		fmt.Println("Only y or n are valid responses")
-		return askToContinue()
+		return imi.askToContinue()
 	}
 }

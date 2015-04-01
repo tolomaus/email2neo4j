@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-func ProcessMessage(msg *mail.Message, db *neoism.Database) (err error) {
+func ProcessMessage(msg *mail.Message, edb *EmailDatabase) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			switch x := r.(type) {
@@ -68,7 +68,7 @@ func ProcessMessage(msg *mail.Message, db *neoism.Database) (err error) {
 	//log.Println(body)
 
 	log.Println("Creating node for 'from' account...")
-	from_account, created, err := GetOrCreateAccount(db, from)
+	from_account, created, err := edb.GetOrCreateAccount(from)
 	if err != nil {
 		return err
 	}
@@ -79,7 +79,7 @@ func ProcessMessage(msg *mail.Message, db *neoism.Database) (err error) {
 	log.Println("Creating node for", strconv.Itoa(len(to)), "'to' account(s)...")
 	to_accounts := []*neoism.Node{}
 	for _, address := range to {
-		to_account, created, err := GetOrCreateAccount(db, address)
+		to_account, created, err := edb.GetOrCreateAccount(address)
 		if err != nil {
 			return err
 		}
@@ -93,7 +93,7 @@ func ProcessMessage(msg *mail.Message, db *neoism.Database) (err error) {
 	if len(cc) > 0 {
 		log.Println("Creating node for", strconv.Itoa(len(cc)), "'cc' account(s)...")
 		for _, address := range cc {
-			cc_account, created, err := GetOrCreateAccount(db, address)
+			cc_account, created, err := edb.GetOrCreateAccount(address)
 			if err != nil {
 				return err
 			}
@@ -105,7 +105,7 @@ func ProcessMessage(msg *mail.Message, db *neoism.Database) (err error) {
 	}
 
 	log.Println("Creating node for email...")
-	email, created, err := GetOrCreateEmail(db, msg)
+	email, created, err := edb.GetOrCreateEmail(msg)
 	if err != nil {
 		return err
 	}
@@ -151,7 +151,7 @@ func ProcessMessage(msg *mail.Message, db *neoism.Database) (err error) {
 
 			for _, in_reply_to := range in_reply_tos {
 				log.Println("Creating a placeholder for the original email if it doesn't exist yet...")
-				orig_email, _, err := GetOrCreateEmailPlaceHolder(db, removeSpecialChars(in_reply_to))
+				orig_email, _, err := edb.GetOrCreateEmailPlaceHolder(removeSpecialChars(in_reply_to))
 				if err != nil {
 					return err
 				}
@@ -167,7 +167,7 @@ func ProcessMessage(msg *mail.Message, db *neoism.Database) (err error) {
 
 			for _, reference := range references {
 				log.Println("Creating a placeholder for the original email if it doesn't exist yet...")
-				orig_email, _, err := GetOrCreateEmailPlaceHolder(db, removeSpecialChars(reference))
+				orig_email, _, err := edb.GetOrCreateEmailPlaceHolder(removeSpecialChars(reference))
 				if err != nil {
 					return err
 				}

@@ -6,17 +6,45 @@ import (
 	"net/mail"
 )
 
-func InitializeNeo4jDatabase() (db *neoism.Database, err error) {
+func NewEmailDatabase(server, username, password string) (*EmailDatabase, error) {
+	edb := &EmailDatabase{
+		server:   server,
+		username: username,
+		password: password,
+	}
+	err := edb.initializeNeo4jDatabase()
+	return edb, err
+}
+
+type EmailImporter interface {
+	GetOrCreateAccount(address *mail.Address) (account *neoism.Node, created bool, err error)
+	GetOrCreateEmail(msg *mail.Message) (email *neoism.Node, created bool, err error)
+	GetOrCreateEmailPlaceHolder(message_id string) (email *neoism.Node, created bool, err error)
+}
+
+type EmailDatabase struct {
+	*neoism.Database
+	server, username, password string
+}
+
+func (edb *EmailDatabase) initializeNeo4jDatabase() (err error) {
 	log.Println("Connecting to neo4j...")
-	db, err = neoism.Connect("http://localhost:7474/db/data")
+
+	var url string
+	if edb.username == "" {
+		url = "http://" + edb.server + "/db/data"
+	} else {
+		url = "https://" + edb.username + ":" + edb.password + "@" + edb.server + "/user/" + edb.username
+	}
+	edb.Database, err = neoism.Connect(url)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	log.Println("Creating constraints and indexes if not yet existing...")
-	indexesAccounts, err := db.Indexes("Account")
+	indexesAccounts, err := edb.Indexes("Account")
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if len(indexesAccounts) == 0 {
@@ -25,23 +53,15 @@ func InitializeNeo4jDatabase() (db *neoism.Database, err error) {
 			Statement: `CREATE CONSTRAINT ON (account:Account) ASSERT account.email_address IS UNIQUE`,
 		}
 
-		err = db.Cypher(&cqAccount)
+		err = edb.Cypher(&cqAccount)
 		if err != nil {
 			log.Println(err)
 		}
-
-		/*
-			log.Println("Creating the index for the Accounts in neo4j...")
-			_, err = db.CreateIndex("Account", "email_address")
-			if err != nil {
-				log.Println(err)
-			}
-		*/
 	}
 
-	indexesEmails, err := db.Indexes("Email")
+	indexesEmails, err := edb.Indexes("Email")
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if len(indexesEmails) == 0 {
@@ -50,25 +70,17 @@ func InitializeNeo4jDatabase() (db *neoism.Database, err error) {
 			Statement: `CREATE CONSTRAINT ON (email:Email) ASSERT email.message_id IS UNIQUE`,
 		}
 
-		err = db.Cypher(&cqAccount)
+		err = edb.Cypher(&cqAccount)
 		if err != nil {
 			log.Println(err)
 		}
-
-		/*
-			log.Println("Creating the index for the Emails in neo4j...")
-			_, err = db.CreateIndex("Email", "message_id")
-			if err != nil {
-				log.Println(err)
-			}
-		*/
 	}
 
-	return db, nil
+	return nil
 }
 
-func GetOrCreateAccount(db *neoism.Database, address *mail.Address) (account *neoism.Node, created bool, err error) {
-	account, created, err = db.GetOrCreateNode("Account", "email_address", neoism.Props{
+func (edb *EmailDatabase) GetOrCreateAccount(address *mail.Address) (account *neoism.Node, created bool, err error) {
+	account, created, err = edb.GetOrCreateNode("Account", "email_address", neoism.Props{
 		"name":          address.Name,
 		"email_address": address.Address})
 
@@ -86,8 +98,8 @@ func GetOrCreateAccount(db *neoism.Database, address *mail.Address) (account *ne
 	return
 }
 
-func GetOrCreateEmail(db *neoism.Database, msg *mail.Message) (email *neoism.Node, created bool, err error) {
-	email, created, err = db.GetOrCreateNode("Email", "message_id", BuildPropertiesForEmail(msg))
+func (edb *EmailDatabase) GetOrCreateEmail(msg *mail.Message) (email *neoism.Node, created bool, err error) {
+	email, created, err = edb.GetOrCreateNode("Email", "message_id", BuildPropertiesForEmail(msg))
 
 	if err != nil {
 		return
@@ -103,8 +115,8 @@ func GetOrCreateEmail(db *neoism.Database, msg *mail.Message) (email *neoism.Nod
 	return
 }
 
-func GetOrCreateEmailPlaceHolder(db *neoism.Database, message_id string) (email *neoism.Node, created bool, err error) {
-	email, created, err = db.GetOrCreateNode("Email", "message_id", neoism.Props{
+func (edb *EmailDatabase) GetOrCreateEmailPlaceHolder(message_id string) (email *neoism.Node, created bool, err error) {
+	email, created, err = edb.GetOrCreateNode("Email", "message_id", neoism.Props{
 		"message_id":  message_id,
 		"placeholder": "true"})
 

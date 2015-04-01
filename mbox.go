@@ -6,14 +6,14 @@ import (
 	"strconv"
 )
 
-func ImportMboxFile(filename string) (importedMessages int, messagesToProcess int, failedMessagesErrors []string, err error) {
+func ImportMboxFile(filename, neo4jServer, neo4jUsername, neo4jPassword string) (importedMessages int, messagesToProcess int, failedMessagesErrors []string, err error) {
 	log.Println("Starting...")
 
 	log.Println("Reading mbox file...")
 	msgs, err := mbox.ReadFile(filename, true)
 
 	log.Println("Initializing neo4j...")
-	db, err := InitializeNeo4jDatabase()
+	edb, err := NewEmailDatabase(neo4jServer, neo4jUsername, neo4jPassword)
 	if err != nil {
 		return 0, 0, nil, err
 	}
@@ -25,7 +25,7 @@ func ImportMboxFile(filename string) (importedMessages int, messagesToProcess in
 		currentMessage++
 		log.Println("Processing message", strconv.Itoa(currentMessage), "of", strconv.Itoa(messagesToProcess), "...")
 
-		err = ProcessMessage(msg, db)
+		err = ProcessMessage(msg, edb)
 		if err != nil {
 			failedMessagesErrors = append(failedMessagesErrors, "Not able to process message "+strconv.Itoa(currentMessage)+": "+err.Error())
 			log.Println()
