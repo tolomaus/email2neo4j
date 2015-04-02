@@ -8,6 +8,8 @@ import (
 )
 
 func main() {
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
+
 	if len(os.Args) < 3 {
 		log.Println("Usage : mbox2neo4j filename neo4jServer [neo4jUsername] [neo4jPassword]")
 		log.Println("Eg:")

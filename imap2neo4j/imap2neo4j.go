@@ -9,7 +9,7 @@ import (
 )
 
 func main() {
-	var err error
+	log.SetFlags(log.LstdFlags | log.Lshortfile)
 
 	if len(os.Args) < 6 {
 		log.Println("Usage : imap2neo4j imapServer imapUsername imapPassword imapMailbox neo4jServer [neo4jUsername (use - for no authorization)] [neo4jPassword (use - for no authorization)] [paging size (use * or omit for all at once)] [messages (first:last; omit for all; * for latest)]")
@@ -32,6 +32,8 @@ func main() {
 	var pagingSize int = -1
 	var firstMessage int = 1
 	var lastMessage int = -1
+
+	var err error
 
 	if len(os.Args) >= 8 {
 		if os.Args[6] != "-" {
