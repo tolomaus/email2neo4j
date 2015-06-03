@@ -2,9 +2,10 @@
 
 ### Summary:
 
-These two little go command line tool allows you to import your emails from either a mail server via IMAP or an mbox file into a neo4j graph database. I have used the model from the email example project that is explained in Chapter 3 of the book [Graph Databases](http://graphdatabases.com/) by Ian Robinson, Jim Webber and Emil Eifrem (which is a truly great introduction to the graph btw)
+imap2neo4j and mbox2neo4j are two little go command line tools that allow you to import your emails from a mail server via IMAP or an mbox file into a neo4j graph database. I have used the model from the email example project that is explained in Chapter 3 of the book [Graph Databases](http://graphdatabases.com/) by Ian Robinson, Jim Webber and Emil Eifrem (which is a truly great introduction to the graph btw)
 
 ### Usage:
+#### imap2neo4j:
 ```shell
 imap2neo4j imapServer imapUsername imapPassword imapMailbox neo4jServer [neo4jUsername] [neo4jPassword] [paging, eg import by batches of 1000] [specific range of messages, eg 5000:*]
 ```
@@ -18,6 +19,7 @@ imap2neo4j imap.googlemail.com user@gmail.com password Inbox localhost:7473 neo4
 
 ```
 
+#### mbox2neo4j:
 ```shell
 mbox2neo4j /path/to/mbox/file neo4jServer [neo4jUsername] [neo4jPassword]
 ```
